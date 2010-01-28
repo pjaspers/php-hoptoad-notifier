@@ -196,40 +196,63 @@ class Services_Hoptoad
 		}
 	}
 
-	/**
-	 * Build up the XML to post according to the documentation at:
-	 * http://help.hoptoadapp.com/faqs/api-2/notifier-api-v2
-	 * @return string
-	 * @author Rich Cavanaugh
-	 **/
-	function buildXmlNotice()
+  function buildXmlNotice()
 	{
 		$doc = new SimpleXMLElement('<notice />');
-		$doc->addAttribute('version', self::NOTIFIER_API_VERSION);
-		$doc->addChild('api-key', $this->apiKey);
+		if (method_exists($doc,'addAttribute')) {
+			$doc->addAttribute('version', self::NOTIFIER_API_VERSION);
+			$doc->addChild('api-key', $this->apiKey);
 
-		$notifier = $doc->addChild('notifier');
-		$notifier->addChild('name', self::NOTIFIER_NAME);
-		$notifier->addChild('version', self::NOTIFIER_VERSION);
-		$notifier->addChild('url', self::NOTIFIER_URL);
+			$notifier = $doc->addChild('notifier');
+			$notifier->addChild('name', self::NOTIFIER_NAME);
+			$notifier->addChild('version', self::NOTIFIER_VERSION);
+			$notifier->addChild('url', self::NOTIFIER_URL);
 
-		$error = $doc->addChild('error');
-		$error->addChild('class', $this->error_class);
-		$error->addChild('message', $this->message);
-		$this->addXmlBacktrace($error);
+			$error = $doc->addChild('error');
+			$error->addChild('class', $this->error_class);
+			$error->addChild('message', $this->message);
+			$this->addXmlBacktrace($error);
 
-		$request = $doc->addChild('request');
-		$request->addChild('url', $this->request_uri());
-		$request->addChild('component', $this->component());
-		$request->addChild('action', $this->action());
+			$request = $doc->addChild('request');
+			$request->addChild('url', $this->request_uri());
+			$request->addChild('component', $this->component());
+			$request->addChild('action', $this->action());
 
-		if (isset($_REQUEST)) $this->addXmlVars($request, 'params', $this->params());
-		if (isset($_SESSION)) $this->addXmlVars($request, 'session', $this->session());
-		if (isset($_SERVER)) $this->addXmlVars($request, 'cgi-data', $this->cgi_data());
+			if (isset($_REQUEST)) $this->addXmlVars($request, 'params', $this->params());
+			if (isset($_SESSION)) $this->addXmlVars($request, 'session', $this->session());
+			if (isset($_SERVER)) $this->addXmlVars($request, 'cgi-data', $this->cgi_data());
 
-		$env = $doc->addChild('server-environment');
-		$env->addChild('project-root', $this->project_root());
-		$env->addChild('environment-name', $this->environment());
+			$env = $doc->addChild('server-environment');
+			$env->addChild('project-root', $this->project_root());
+			$env->addChild('environment-name', $this->environment());
+		} else {
+			$this->simplexml_addAttribute($doc,'version', self::NOTIFIER_API_VERSION);
+		 	$this->simplexml_addChild($doc,'api-key', $this->apiKey);
+
+			$notifier = $this->simplexml_addChild($doc,'notifier');
+			$this->simplexml_addChild($notifier,'name', self::NOTIFIER_NAME);
+			$this->simplexml_addChild($notifier,'version', self::NOTIFIER_VERSION);
+			$this->simplexml_addChild($notifier,'url', self::NOTIFIER_URL);
+
+			$error = $this->simplexml_addChild($doc,'error');
+			$this->simplexml_addChild($error,'class', $this->error_class);
+			$this->simplexml_addChild($error,'message', $this->message);
+			$this->addXmlBacktrace($error);
+
+			$request = $this->simplexml_addChild($doc,'request');
+			$this->simplexml_addChild($request,'url', $this->request_uri());
+			$this->simplexml_addChild($request,'component', $this->component());
+			$this->simplexml_addChild($request,'action', $this->action());
+
+			if (isset($_REQUEST)) $this->addXmlVars($request, 'params', $this->params());
+			if (isset($_SESSION)) $this->addXmlVars($request, 'session', $this->session());
+			if (isset($_SERVER)) $this->addXmlVars($request, 'cgi-data', $this->cgi_data());
+
+			$env = $this->simplexml_addChild($doc,'server-environment');
+			$this->simplexml_addChild($env,'project-root', $this->project_root());
+			$this->simplexml_addChild($env,'environment-name', $this->environment());
+		}
+    
 
 		return $doc->asXML();
 	}
@@ -239,16 +262,24 @@ class Services_Hoptoad
 	 * @return void
 	 * @author Rich Cavanaugh
 	 **/
-	function addXmlVars($parent, $key, $source)
-	{
-		if (empty($source)) return;
+  function addXmlVars($parent, $key, $source)
+  {
+    if (empty($source)) return;
+    if (method_exists($parent,'addAttribute')) {
 
-		$node = $parent->addChild($key);
-		foreach ($source as $key => $val) {
-			$var_node = $node->addChild('var', $val);
-			$var_node->addAttribute('key', $key);
-		}
-	}
+      $node = $parent->addChild($key);
+      foreach ($source as $key => $val) {
+        $var_node = $node->addChild('var', $val);
+        $var_node->addAttribute('key', $key);
+      } 
+    } else {
+      $node = $this->simplexml_addChild($parent,$key);
+      foreach ($source as $key => $val) {
+        $var_node = $this->simplexml_addChild($node,'var', $val);
+        $this->simplexml_addAttribute($var_node,'key', $key);
+      }
+    }
+  }
 
 	/**
 	 * Add a Hoptoad backtrace to the XML
@@ -257,19 +288,36 @@ class Services_Hoptoad
 	 **/
 	function addXmlBacktrace($parent)
 	{
-		$backtrace = $parent->addChild('backtrace');
-		$line_node = $backtrace->addChild('line');
-		$line_node->addAttribute('file', $this->file);
-		$line_node->addAttribute('number', $this->line);
+		if (method_exists($parent,'addAttribute')) {
+      
+      $backtrace = $parent->addChild('backtrace');
+      $line_node = $backtrace->addChild('line');
+      $line_node->addAttribute('file', $this->file);
+      $line_node->addAttribute('number', $this->line);
 
-		foreach ($this->trace as $entry) {
-			if (isset($entry['class']) && $entry['class'] == 'Services_Hoptoad') continue;
+      foreach ($this->trace as $entry) {
+        if (isset($entry['class']) && $entry['class'] == 'Services_Hoptoad') continue;
 
-			$line_node = $backtrace->addChild('line');
-			$line_node->addAttribute('file', $entry['file']);
-			$line_node->addAttribute('number', $entry['line']);
-			$line_node->addAttribute('method', $entry['function']);
-		}
+        $line_node = $backtrace->addChild('line');
+        $line_node->addAttribute('file', $entry['file']);
+        $line_node->addAttribute('number', $entry['line']);
+        $line_node->addAttribute('method', $entry['function']);
+      }
+    } else {
+      $backtrace = $this->simplexml_addChild($parent,'backtrace');
+      $line_node = $this->simplexml_addChild($backtrace,'line');
+      $this->simplexml_addAttribute($line_node,'file', $this->file);
+      $this->simplexml_addAttribute($line_node,'number', $this->line);
+
+      foreach ($this->trace as $entry) {
+        if (isset($entry['class']) && $entry['class'] == 'Services_Hoptoad') continue;
+
+        $line_node = $this->simplexml_addChild($backtrace,'line');
+        $this->simplexml_addAttribute($line_node,'file', $entry['file']);
+        $this->simplexml_addAttribute($line_node,'number', $entry['line']);
+        $this->simplexml_addAttribute($line_node,'method', $entry['function']);
+      }
+    }
 	}
 
 	/**
@@ -449,5 +497,40 @@ class Services_Hoptoad
 		$response = $client->request('POST');
 
 		return $response->getStatus();
+	}
+
+  	/**
+	 * Used as a replacement in case PHP version < PHP 5.1.3
+	 * Emulates PHP 5.1.3's native simplexmlelement->addChild
+	 *
+	 * @param string $parent 
+	 * @param string $name 
+	 * @param string $value 
+	 * @return node
+	 * @author Piet Jaspers
+	 */
+	function simplexml_addChild($parent, $name, $value=''){ 
+	    $new_child = new SimpleXMLElement("<$name>$value</$name>"); 
+	    $node1 = dom_import_simplexml($parent); 
+	    $dom_sxe = dom_import_simplexml($new_child); 
+	    $node2 = $node1->ownerDocument->importNode($dom_sxe, true); 
+	    $node1->appendChild($node2); 
+	    return simplexml_import_dom($node2); 
+	} 
+
+	/**
+	 * Used as a replacement in case PHP version < PHP 5.1.3
+	 * Emulates PHP 5.1.3's native simplexmlelement->addAttribute
+	 *
+	 * @param string $parent 
+	 * @param string $name 
+	 * @param string $value 
+	 * @return node
+	 * @author Piet Jaspers
+	 */
+	function simplexml_addAttribute($parent, $name, $value=''){ 
+	    $node1 = dom_import_simplexml($parent); 
+	    $node1->setAttribute($name,$value); 
+	    return simplexml_import_dom($node1); 
 	}
 }
